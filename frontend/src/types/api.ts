@@ -155,3 +155,70 @@ export interface MetricsSummary {
   p95_latency_ms: number;
   model_distribution: Record<string, number>;
 }
+
+export interface RouteDecision {
+  model_name: string;
+  tier: 'small' | 'large' | string;
+  reason_code: string;
+  complexity_score: number;
+  complexity_reasons: string[];
+}
+
+export interface ClassifyQueryRequest {
+  query: string;
+  context_token_estimate?: number;
+  tenant_id?: string;
+}
+
+export interface ClassifyQueryResponse {
+  query: string;
+  complexity_score: number;
+  selected_tier: 'small' | 'large' | string;
+  selected_model: string;
+  reason_code: string;
+  detected_signals: string[];
+  threshold: number;
+}
+
+export interface ModelUsageRecord {
+  id: string;
+  request_id: string;
+  model_name: string;
+  provider_name: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  unit_cost_input: number;
+  unit_cost_output: number;
+  estimated_cost_usd: number;
+  latency_ms: number;
+  created_at: string;
+}
+
+export interface RequestLedgerEntry {
+  id: string;
+  request_id: string;
+  tenant_id: string;
+  security_scope: string;
+  query_text: string;
+  cache_status: 'hit_exact' | 'hit_semantic' | 'miss' | 'bypass' | string;
+  route: 'small' | 'large' | string;
+  route_reason: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd: number;
+  is_authoritative_billing: boolean;
+  latency_cache_ms: number;
+  latency_retrieval_ms: number;
+  latency_generation_ms: number;
+  latency_total_ms: number;
+  error_code?: string;
+  created_at: string;
+}
+
+export interface RequestLedgerDetail {
+  ledger_entry: RequestLedgerEntry;
+  model_usages: ModelUsageRecord[];
+}
+

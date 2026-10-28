@@ -1,4 +1,4 @@
-"""RAG Pipeline Service orchestrating semantic caching, ingestion, retrieval, and grounded answer generation."""
+"""RAG Pipeline Service orchestrating semantic caching, complexity-based model routing, and the usage ledger."""
 import hashlib
 import time
 import uuid
@@ -17,6 +17,8 @@ from backend.app.schemas.rag import (
 )
 from backend.app.services.chunking import ChunkingService
 from backend.app.services.semantic_cache_service import SemanticCacheService
+from backend.app.services.router_service import RouterService
+from backend.app.services.ledger_service import LedgerService
 from backend.app.repositories.document_repository import get_document_repository, DocumentRepository
 from backend.app.adapters.factory import get_llm_provider, get_embedding_provider
 from backend.app.core.config import get_settings
@@ -25,17 +27,21 @@ logger = logging.getLogger(__name__)
 
 
 class RAGPipelineService:
-    """Core RAG orchestration service with integrated semantic cache."""
+    """Core RAG orchestration service with integrated semantic cache and cost-aware router."""
 
     def __init__(
         self,
         repository: Optional[DocumentRepository] = None,
         cache_service: Optional[SemanticCacheService] = None,
+        router_service: Optional[RouterService] = None,
+        ledger_service: Optional[LedgerService] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 60
     ):
         self.repo = repository or get_document_repository()
         self.cache = cache_service or SemanticCacheService()
+        self.router = router_service or RouterService()
+        self.ledger = ledger_service or LedgerService()
         self.chunker = ChunkingService(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.settings = get_settings()
 
@@ -105,10 +111,14 @@ class RAGPipelineService:
 
     async def run_query(self, req: QueryRequest, request_id: str) -> QueryResponse:
         """
-        Execute RAG query with semantic cache check:
+        Execute RAG query with semantic cache check and policy-based model routing:
         1. Evaluate semantic cache (Tier 1 exact match & Tier 2 vector similarity).
         2. If hit: return cached answer immediately with 0 token cost and fast latency.
-        3. If miss/bypass: retrieve chunks, generate grounded answer, and store in cache.
+        3. If miss/bypass:
+           a. Retrieve top-k chunks bounded by tenant & security scope.
+           b. Classify query complexity -> select small model or large reasoning model.
+           c. Generate answer, executing automatic large fallback if small model errors.
+           d. Store in cache & commit transaction to usage ledger.
         """
         total_start = time.perf_counter()
 
@@ -139,13 +149,25 @@ class RAGPipelineService:
                     total=total_duration_ms
                 )
             )
-            return QueryResponse(
+            response = QueryResponse(
                 request_id=request_id,
                 query=req.query,
                 answer=cache_result.entry.response_text,
                 citations=cache_result.entry.citations,
                 telemetry=telemetry
             )
+
+            # Record in Ledger
+            await self.ledger.record_transaction(
+                request_id=request_id,
+                tenant_id=req.tenant_id,
+                security_scope=req.security_scope,
+                query=req.query,
+                response=response,
+                model_name="cache"
+            )
+
+            return response
 
         # Step 2: Cache MISS or BYPASS -> Vector Retrieval
         retrieval_start = time.perf_counter()
@@ -160,9 +182,11 @@ class RAGPipelineService:
         )
         retrieval_duration_ms = round((time.perf_counter() - retrieval_start) * 1000, 2)
 
-        # Assemble citations
+        # Assemble citations and count context tokens
         citations: List[Citation] = []
         context_parts = []
+        total_context_tokens = 0
+
         for cand in candidates:
             citations.append(Citation(
                 document_id=cand["document_id"],
@@ -174,10 +198,20 @@ class RAGPipelineService:
             context_parts.append(
                 f"[Source: {cand['document_title']} (Chunk: {cand['chunk_id']})]\n{cand['text']}"
             )
+            total_context_tokens += len(cand["text"].split())
 
         context_str = "\n\n".join(context_parts) if context_parts else "No relevant context found."
 
-        # Step 3: Grounded Prompt Assembly
+        # Step 3: Cost-Aware Router: Classify query complexity
+        route_decision = self.router.route_query(
+            query=req.query,
+            context_token_estimate=total_context_tokens
+        )
+        selected_model = route_decision.model_name
+        route_tier = route_decision.tier
+        route_reason = route_decision.reason_code
+
+        # Step 4: Grounded Prompt Assembly
         system_prompt = (
             "You are CachePilot, an accurate and grounded enterprise assistant. "
             "Answer the user query based ONLY on the provided context evidence. "
@@ -187,13 +221,28 @@ class RAGPipelineService:
 
         user_prompt = f"Context Evidence:\n{context_str}\n\nUser Question:\n{req.query}"
 
-        # Step 4: Generation
+        # Step 5: Generation with Resilient Fallback Handling
         gen_start = time.perf_counter()
-        llm = get_llm_provider(model_name=self.settings.small_model_name)
-        llm_resp = await llm.generate(prompt=user_prompt, system=system_prompt)
+        try:
+            llm = get_llm_provider(model_name=selected_model)
+            llm_resp = await llm.generate(prompt=user_prompt, system=system_prompt)
+        except Exception as e:
+            if selected_model == self.settings.small_model_name and self.settings.fallback_to_large_on_error:
+                logger.warning(
+                    f"Small model '{selected_model}' invocation failed ({e}). Executing automatic fallback to large model."
+                )
+                selected_model = self.settings.large_model_name
+                route_tier = "large"
+                route_reason = "FALLBACK_RETRY"
+                fallback_llm = get_llm_provider(model_name=selected_model)
+                llm_resp = await fallback_llm.generate(prompt=user_prompt, system=system_prompt)
+            else:
+                logger.error(f"Model generation error on '{selected_model}': {e}")
+                raise
+
         gen_duration_ms = round((time.perf_counter() - gen_start) * 1000, 2)
 
-        # Step 5: Write to cache if not bypassed
+        # Step 6: Write to cache if not bypassed
         if cache_result.cache_status != "BYPASS":
             await self.cache.write(
                 query=req.query,
@@ -210,8 +259,8 @@ class RAGPipelineService:
         telemetry = QueryTelemetry(
             cache_status=cache_result.cache_status,
             similarity_score=candidates[0]["score"] if candidates else 0.0,
-            route="small",
-            route_reason="BASELINE_RAG_DIRECT",
+            route=route_tier,
+            route_reason=route_reason,
             tokens=TokenUsage(
                 prompt_tokens=llm_resp.prompt_tokens,
                 completion_tokens=llm_resp.completion_tokens,
@@ -227,10 +276,22 @@ class RAGPipelineService:
             )
         )
 
-        return QueryResponse(
+        response = QueryResponse(
             request_id=request_id,
             query=req.query,
             answer=llm_resp.text,
             citations=citations,
             telemetry=telemetry
         )
+
+        # Step 7: Record Transaction in Usage Ledger
+        await self.ledger.record_transaction(
+            request_id=request_id,
+            tenant_id=req.tenant_id,
+            security_scope=req.security_scope,
+            query=req.query,
+            response=response,
+            model_name=selected_model
+        )
+
+        return response

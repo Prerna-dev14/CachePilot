@@ -10,6 +10,11 @@ import type {
   CacheMetrics,
   CacheInvalidateRequest,
   CacheInvalidateResponse,
+  ClassifyQueryRequest,
+  ClassifyQueryResponse,
+  RequestLedgerEntry,
+  RequestLedgerDetail,
+  MetricsSummary,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -107,6 +112,30 @@ class ApiClient {
       body: JSON.stringify(req),
     });
   }
+
+  async classifyQuery(req: ClassifyQueryRequest): Promise<{ data: ClassifyQueryResponse; requestId: string; latencyMs: number }> {
+    return this.request<ClassifyQueryResponse>('/api/v1/router/classify', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    });
+  }
+
+  async listLedgerRequests(tenantId?: string, limit: number = 50): Promise<{ data: RequestLedgerEntry[]; requestId: string; latencyMs: number }> {
+    let url = `/api/v1/ledger/requests?limit=${limit}`;
+    if (tenantId) {
+      url += `&tenant_id=${encodeURIComponent(tenantId)}`;
+    }
+    return this.request<RequestLedgerEntry[]>(url);
+  }
+
+  async getLedgerRequestDetail(requestId: string): Promise<{ data: RequestLedgerDetail; requestId: string; latencyMs: number }> {
+    return this.request<RequestLedgerDetail>(`/api/v1/ledger/requests/${encodeURIComponent(requestId)}`);
+  }
+
+  async getMetricsSummary(): Promise<{ data: MetricsSummary; requestId: string; latencyMs: number }> {
+    return this.request<MetricsSummary>('/api/v1/metrics/summary');
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
+

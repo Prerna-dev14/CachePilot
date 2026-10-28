@@ -6,6 +6,7 @@ import { SystemHealthCard } from './components/SystemHealthCard';
 import { PhaseShell } from './components/PhaseShell';
 import { RAGStudio } from './components/RAGStudio';
 import { SemanticCacheExplorer } from './components/SemanticCacheExplorer';
+import { RoutingLedgerStudio } from './components/RoutingLedgerStudio';
 import { apiClient } from './services/apiClient';
 import type { HealthLiveResponse, HealthReadyResponse } from './types/api';
 import { FileText, BookOpen } from 'lucide-react';
@@ -93,6 +94,8 @@ export function App() {
           <RAGStudio selectedTenant={selectedTenant} />
         ) : activeTab === 'cache' ? (
           <SemanticCacheExplorer selectedTenant={selectedTenant} />
+        ) : activeTab === 'routing' ? (
+          <RoutingLedgerStudio selectedTenant={selectedTenant} />
         ) : (
           <PhaseShell activeTab={activeTab} selectedTenant={selectedTenant} />
         )}

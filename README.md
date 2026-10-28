@@ -118,26 +118,29 @@ npm run dev
 
 ## 4. Test Results Summary
 
-- **Backend Pytest Suite**: 26 passed (100%)
+- **Backend Pytest Suite**: 34 passed (100%)
   - `backend/tests/security/test_cache_isolation.py` (Zero cross-tenant cache reuse leakage)
   - `backend/tests/security/test_tenant_isolation.py` (Zero cross-tenant retrieval leakage)
+  - `backend/tests/unit/test_complexity_classifier.py` (Low complexity factual lookup, comparative reasoning, multi-step analytical reasoning, quantitative math)
+  - `backend/tests/unit/test_routing_fallback.py` (Deterministic small model error recovery to large model with `FALLBACK_RETRY`)
+  - `backend/tests/integration/test_usage_ledger_api.py` (Classifier API, usage ledger ingestion, request drilldown, summary metrics)
   - `backend/tests/unit/test_cache_freshness.py` (TTL expiration and corpus version invalidation)
   - `backend/tests/unit/test_cache_key.py` (Query normalization, tenant isolation, and version sensitivity)
   - `backend/tests/integration/test_semantic_cache_api.py` (Exact hit, semantic hit, miss, bypass, and invalidation)
   - `backend/tests/integration/test_rag_pipeline.py` (End-to-end ingestion, document listing, grounded queries)
   - `backend/tests/unit/test_chunking.py`, `test_config.py`, `test_logging.py`, `test_mock_providers.py`, `test_health_api.py`.
-- **Frontend Vitest Suite**: 10 passed (100%)
+- **Frontend Vitest Suite**: 12 passed (100%)
+  - `RoutingLedgerStudio.test.tsx` (Summary KPI cards, complexity simulator, historical ledger records, diagnostics modal)
   - `SemanticCacheExplorer.test.tsx` (Hit rate metrics, entry inspection, cache purge trigger)
   - `RAGStudio.test.tsx` (Ingestion form, preset buttons, grounded query execution with citations)
   - `Header.test.tsx` & `SystemHealthCard.test.tsx`.
-- **Frontend Production Build**: Clean build via `tsc -b && vite build`.
+- **Frontend Production Build**: Clean bundle via `tsc -b && vite build`.
 
 ---
 
-## 5. Next Step: Phase 4 — Routing and Usage Ledger
-Upon approval, Phase 4 will implement:
-- Query complexity classifier (syntax, multi-step reasoning, length, contextual indicators)
-- Dynamic policy selector routing to small model (`LOW_COMPLEXITY_DIRECT`) vs. large frontier model (`REASONING_REQUIRED`)
-- Deterministic provider failure handling and automatic fallback (`FALLBACK_RETRY`)
-- Per-request usage ledger (`requests` and `model_usage` tables) recording exact token usage, estimated costs, and latency watermarks
-- Transparent labeling of non-authoritative financial estimates
+## 5. Next Step: Phase 5 — Dashboard & Quality Evaluation
+Upon approval, Phase 5 will implement:
+- Interactive analytics dashboard for model routing breakdown, hit rates, and latency distribution
+- Automated evaluation runner and offline quality benchmark comparisons (retrieval relevance and answer accuracy)
+- Exportable telemetry audit reports for operational reviews
+
