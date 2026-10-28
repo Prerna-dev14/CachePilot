@@ -29,9 +29,9 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
       key: 'cache' as TabKey,
       label: 'Phase 3: Semantic Cache',
       icon: Layers,
-      badge: 'Planned',
-      badgeColor: 'bg-slate-700/50 text-slate-400 border-slate-700',
-      ready: false,
+      badge: 'Active & Verified',
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      ready: true,
     },
     {
       key: 'routing' as TabKey,

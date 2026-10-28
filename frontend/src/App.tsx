@@ -5,6 +5,7 @@ import type { TabKey } from './components/Navigation';
 import { SystemHealthCard } from './components/SystemHealthCard';
 import { PhaseShell } from './components/PhaseShell';
 import { RAGStudio } from './components/RAGStudio';
+import { SemanticCacheExplorer } from './components/SemanticCacheExplorer';
 import { apiClient } from './services/apiClient';
 import type { HealthLiveResponse, HealthReadyResponse } from './types/api';
 import { FileText, BookOpen } from 'lucide-react';
@@ -90,6 +91,8 @@ export function App() {
         {/* Phase-specific vertical view */}
         {activeTab === 'rag' ? (
           <RAGStudio selectedTenant={selectedTenant} />
+        ) : activeTab === 'cache' ? (
+          <SemanticCacheExplorer selectedTenant={selectedTenant} />
         ) : (
           <PhaseShell activeTab={activeTab} selectedTenant={selectedTenant} />
         )}

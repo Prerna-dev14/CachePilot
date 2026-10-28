@@ -1,4 +1,4 @@
-"""RAG Pipeline Service orchestrating ingestion, retrieval, and grounded answer generation."""
+"""RAG Pipeline Service orchestrating semantic caching, ingestion, retrieval, and grounded answer generation."""
 import hashlib
 import time
 import uuid
@@ -16,6 +16,7 @@ from backend.app.schemas.rag import (
     LatencyBreakdown,
 )
 from backend.app.services.chunking import ChunkingService
+from backend.app.services.semantic_cache_service import SemanticCacheService
 from backend.app.repositories.document_repository import get_document_repository, DocumentRepository
 from backend.app.adapters.factory import get_llm_provider, get_embedding_provider
 from backend.app.core.config import get_settings
@@ -24,15 +25,17 @@ logger = logging.getLogger(__name__)
 
 
 class RAGPipelineService:
-    """Core RAG orchestration service."""
+    """Core RAG orchestration service with integrated semantic cache."""
 
     def __init__(
         self,
         repository: Optional[DocumentRepository] = None,
+        cache_service: Optional[SemanticCacheService] = None,
         chunk_size: int = 500,
         chunk_overlap: int = 60
     ):
         self.repo = repository or get_document_repository()
+        self.cache = cache_service or SemanticCacheService()
         self.chunker = ChunkingService(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.settings = get_settings()
 
@@ -102,16 +105,49 @@ class RAGPipelineService:
 
     async def run_query(self, req: QueryRequest, request_id: str) -> QueryResponse:
         """
-        Execute baseline RAG pipeline:
-        1. Embed user query
-        2. Retrieve top-k chunks bounded by tenant & security scope
-        3. Formulate grounded prompt with citations
-        4. Generate answer with LLM
-        5. Record token usage and latencies
+        Execute RAG query with semantic cache check:
+        1. Evaluate semantic cache (Tier 1 exact match & Tier 2 vector similarity).
+        2. If hit: return cached answer immediately with 0 token cost and fast latency.
+        3. If miss/bypass: retrieve chunks, generate grounded answer, and store in cache.
         """
         total_start = time.perf_counter()
 
-        # Phase 1: Retrieval
+        # Step 1: Semantic Cache Evaluation
+        cache_result = await self.cache.lookup(
+            query=req.query,
+            tenant_id=req.tenant_id,
+            security_scope=req.security_scope,
+            similarity_threshold=req.similarity_threshold,
+            bypass_cache=req.bypass_cache
+        )
+
+        # On valid cache HIT: return stored response immediately
+        if cache_result.hit and cache_result.entry:
+            total_duration_ms = round((time.perf_counter() - total_start) * 1000, 2)
+            telemetry = QueryTelemetry(
+                cache_status=cache_result.cache_status,
+                similarity_score=cache_result.similarity_score,
+                route="cache",
+                route_reason=f"SEMANTIC_CACHE_{cache_result.cache_status}",
+                tokens=TokenUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0),
+                estimated_cost_usd=0.0,
+                is_authoritative_billing=False,
+                latencies_ms=LatencyBreakdown(
+                    cache_lookup=cache_result.latency_ms,
+                    retrieval=0.0,
+                    generation=0.0,
+                    total=total_duration_ms
+                )
+            )
+            return QueryResponse(
+                request_id=request_id,
+                query=req.query,
+                answer=cache_result.entry.response_text,
+                citations=cache_result.entry.citations,
+                telemetry=telemetry
+            )
+
+        # Step 2: Cache MISS or BYPASS -> Vector Retrieval
         retrieval_start = time.perf_counter()
         embedder = get_embedding_provider()
         query_vec = await embedder.embed_query(req.query)
@@ -141,7 +177,7 @@ class RAGPipelineService:
 
         context_str = "\n\n".join(context_parts) if context_parts else "No relevant context found."
 
-        # Phase 2: Grounded Prompt Formulation
+        # Step 3: Grounded Prompt Assembly
         system_prompt = (
             "You are CachePilot, an accurate and grounded enterprise assistant. "
             "Answer the user query based ONLY on the provided context evidence. "
@@ -151,16 +187,28 @@ class RAGPipelineService:
 
         user_prompt = f"Context Evidence:\n{context_str}\n\nUser Question:\n{req.query}"
 
-        # Phase 3: Generation
+        # Step 4: Generation
         gen_start = time.perf_counter()
         llm = get_llm_provider(model_name=self.settings.small_model_name)
         llm_resp = await llm.generate(prompt=user_prompt, system=system_prompt)
         gen_duration_ms = round((time.perf_counter() - gen_start) * 1000, 2)
 
+        # Step 5: Write to cache if not bypassed
+        if cache_result.cache_status != "BYPASS":
+            await self.cache.write(
+                query=req.query,
+                tenant_id=req.tenant_id,
+                security_scope=req.security_scope,
+                response_text=llm_resp.text,
+                citations=citations,
+                query_embedding=query_vec,
+                estimated_cost_usd=llm_resp.estimated_cost_usd
+            )
+
         total_duration_ms = round((time.perf_counter() - total_start) * 1000, 2)
 
         telemetry = QueryTelemetry(
-            cache_status="MISS" if not req.bypass_cache else "BYPASS",
+            cache_status=cache_result.cache_status,
             similarity_score=candidates[0]["score"] if candidates else 0.0,
             route="small",
             route_reason="BASELINE_RAG_DIRECT",
@@ -172,7 +220,7 @@ class RAGPipelineService:
             estimated_cost_usd=llm_resp.estimated_cost_usd,
             is_authoritative_billing=False,
             latencies_ms=LatencyBreakdown(
-                cache_lookup=0.0,
+                cache_lookup=cache_result.latency_ms,
                 retrieval=retrieval_duration_ms,
                 generation=gen_duration_ms,
                 total=total_duration_ms

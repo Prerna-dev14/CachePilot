@@ -71,6 +71,7 @@ class QueryRequest(BaseModel):
     security_scope: str = Field(default="default", min_length=1, max_length=64)
     top_k: int = Field(default=3, ge=1, le=10)
     bypass_cache: bool = Field(default=False)
+    similarity_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     conversation_id: Optional[str] = Field(default=None)
 
 

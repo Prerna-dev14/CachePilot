@@ -22,7 +22,7 @@ CachePilot is an observable, scope-aware AI gateway designed to reduce redundant
 
 ---
 
-## 2. Implemented Foundation (Phase 0, 1 & 2)
+## 2. Implemented Foundation (Phase 0, 1, 2 & 3)
 
 ### Scope-Aware Semantic Cache Key Formulation
 Cache keys strictly enforce multi-tenant isolation and security scope boundaries:
@@ -49,21 +49,24 @@ cache_key = SHA256(
 3. **Health & Readiness Probes**:
    - `GET /health/live`: Fast process liveness probe (200 OK).
    - `GET /health/ready`: Deep dependency readiness check measuring roundtrip latency for PostgreSQL (`pgvector`) and Redis cache storage (with automatic in-memory fallback).
-4. **Baseline RAG Pipeline (Phase 2 Slice)**:
+4. **Baseline RAG Pipeline**:
    - `POST /api/v1/documents`: Document ingestion with automatic text chunking and 1536-d vector embeddings.
    - `GET /api/v1/documents`: Scoped corpus document listing strictly filtered by tenant.
    - `POST /api/v1/query`: Grounded query execution with vector similarity retrieval, citation tracking, token counting, estimated cost calculation, and latency breakdown (retrieval vs generation).
-5. **Security & Scope Isolation**:
-   - Hard boundary tests verify Tenant A cannot retrieve Tenant B's documents even when queries match confidential text.
-6. **Replaceable Provider Adapters**:
+5. **Scope-Aware Semantic Cache (Phase 3 Slice)**:
+   - **Dual-Tier Cache**: Fast exact hash match in Redis / In-Memory (Tier 1) + Cosine similarity candidate retrieval in pgvector (Tier 2).
+   - **Similarity Threshold ($\tau = 0.88$)**: Conservative default prevents semantic drift and hallucinations.
+   - **Freshness & TTL**: Enforces time-based expiration and invalidates stale entries on corpus version or prompt template updates.
+   - **Cache Invalidation**: `POST /api/v1/cache/invalidate` purges entries by tenant, scope, or corpus version.
+   - **Cache Telemetry**: `GET /api/v1/cache/metrics` and `GET /api/v1/cache/entries`.
+6. **Multi-Tenant Security Isolation**:
+   - Hard boundary tests verify that neither vector chunks nor cached query responses can ever leak across tenants or security boundaries.
+7. **Replaceable Provider Adapters**:
    - `LLMProvider` and `EmbeddingProvider` abstract interfaces.
    - Deterministic `MockLLMProvider` and `MockEmbeddingProvider` with semantic keyword overlap simulation for CI tests.
-7. **Database Schema & Migrations**:
-   - Initial migration [`migrations/init.sql`](./migrations/init.sql) defining complete multi-tenant RAG schema.
-8. **Frontend RAG Studio (React 19 + TypeScript + Vite + Tailwind CSS)**:
-   - Interactive Document Ingestion panel with preset templates.
-   - Live Corpus document browser.
-   - Grounded RAG Query console with top-k controls, evidence citations, and telemetry waterfall.
+8. **Frontend RAG Studio & Semantic Cache Explorer (React 19 + TypeScript + Vite + Tailwind CSS)**:
+   - Interactive RAG Query & Ingestion Studio with evidence citations and telemetry.
+   - Semantic Cache Explorer displaying hit rate metrics, dual-tier match counters, cache entry inspector, purge controls, and cosine threshold sensitivity simulator.
 
 ---
 
@@ -115,26 +118,26 @@ npm run dev
 
 ## 4. Test Results Summary
 
-- **Backend Pytest Suite**: 19 passed (100%)
+- **Backend Pytest Suite**: 26 passed (100%)
+  - `backend/tests/security/test_cache_isolation.py` (Zero cross-tenant cache reuse leakage)
   - `backend/tests/security/test_tenant_isolation.py` (Zero cross-tenant retrieval leakage)
-  - `backend/tests/unit/test_chunking.py` (Chunk size, overlap, empty/short edge cases, token estimation)
-  - `backend/tests/integration/test_rag_pipeline.py` (End-to-end ingest, list, and grounded query flow)
-  - `backend/tests/unit/test_config.py` (Validation, threshold bounds, secret masking)
-  - `backend/tests/unit/test_logging.py` (Correlation ID context, JSON formatting)
-  - `backend/tests/unit/test_mock_providers.py` (Deterministic generation, failure simulation, vector normalization)
-  - `backend/tests/integration/test_health_api.py` (Liveness, readiness, custom correlation headers)
-- **Frontend Vitest Suite**: 8 passed (100%)
+  - `backend/tests/unit/test_cache_freshness.py` (TTL expiration and corpus version invalidation)
+  - `backend/tests/unit/test_cache_key.py` (Query normalization, tenant isolation, and version sensitivity)
+  - `backend/tests/integration/test_semantic_cache_api.py` (Exact hit, semantic hit, miss, bypass, and invalidation)
+  - `backend/tests/integration/test_rag_pipeline.py` (End-to-end ingestion, document listing, grounded queries)
+  - `backend/tests/unit/test_chunking.py`, `test_config.py`, `test_logging.py`, `test_mock_providers.py`, `test_health_api.py`.
+- **Frontend Vitest Suite**: 10 passed (100%)
+  - `SemanticCacheExplorer.test.tsx` (Hit rate metrics, entry inspection, cache purge trigger)
   - `RAGStudio.test.tsx` (Ingestion form, preset buttons, grounded query execution with citations)
-  - `Header.test.tsx` (Brand rendering, active phase badge, tenant switching)
-  - `SystemHealthCard.test.tsx` (Dependency probe states, error notification, refresh button)
+  - `Header.test.tsx` & `SystemHealthCard.test.tsx`.
 - **Frontend Production Build**: Clean build via `tsc -b && vite build`.
 
 ---
 
-## 5. Next Step: Phase 3 — Semantic Cache
-Upon approval, Phase 3 will implement:
-- Scope-aware cache key computation
-- Dual-tier lookup (Redis / in-memory exact match + pgvector similarity candidate retrieval)
-- Configurable similarity threshold ($\tau = 0.88$)
-- Cache write with TTL and freshness tags (`corpus_version`, `prompt_version`)
-- Cache bypass, explicit invalidation endpoint (`POST /api/v1/cache/invalidate`), and hit/miss telemetry tracking
+## 5. Next Step: Phase 4 — Routing and Usage Ledger
+Upon approval, Phase 4 will implement:
+- Query complexity classifier (syntax, multi-step reasoning, length, contextual indicators)
+- Dynamic policy selector routing to small model (`LOW_COMPLEXITY_DIRECT`) vs. large frontier model (`REASONING_REQUIRED`)
+- Deterministic provider failure handling and automatic fallback (`FALLBACK_RETRY`)
+- Per-request usage ledger (`requests` and `model_usage` tables) recording exact token usage, estimated costs, and latency watermarks
+- Transparent labeling of non-authoritative financial estimates

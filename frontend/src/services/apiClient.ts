@@ -6,6 +6,10 @@ import type {
   DocumentSummary,
   QueryRequest,
   QueryResponse,
+  CacheEntrySchema,
+  CacheMetrics,
+  CacheInvalidateRequest,
+  CacheInvalidateResponse,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -86,6 +90,21 @@ class ApiClient {
     return this.request<QueryResponse>('/api/v1/query', {
       method: 'POST',
       body: JSON.stringify(queryReq),
+    });
+  }
+
+  async getCacheEntries(tenantId: string): Promise<{ data: CacheEntrySchema[]; requestId: string; latencyMs: number }> {
+    return this.request<CacheEntrySchema[]>(`/api/v1/cache/entries?tenant_id=${encodeURIComponent(tenantId)}`);
+  }
+
+  async getCacheMetrics(): Promise<{ data: CacheMetrics; requestId: string; latencyMs: number }> {
+    return this.request<CacheMetrics>('/api/v1/cache/metrics');
+  }
+
+  async invalidateCache(req: CacheInvalidateRequest): Promise<{ data: CacheInvalidateResponse; requestId: string; latencyMs: number }> {
+    return this.request<CacheInvalidateResponse>('/api/v1/cache/invalidate', {
+      method: 'POST',
+      body: JSON.stringify(req),
     });
   }
 }

@@ -102,6 +102,50 @@ export interface QueryResponse {
   created_at?: string;
 }
 
+export interface CacheEntrySchema {
+  id: string;
+  tenant_id: string;
+  security_scope: string;
+  cache_key: string;
+  query_text: string;
+  normalized_query: string;
+  response_text: string;
+  citations: QueryCitation[];
+  embedding_model_version: string;
+  corpus_version: string;
+  prompt_version: string;
+  generation_params_hash: string;
+  ttl_seconds: number;
+  expires_at: string;
+  hit_count: number;
+  created_at: string;
+  last_accessed_at: string;
+}
+
+export interface CacheInvalidateRequest {
+  tenant_id: string;
+  security_scope?: string;
+  corpus_version?: string;
+}
+
+export interface CacheInvalidateResponse {
+  invalidated_count: number;
+  tenant_id: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface CacheMetrics {
+  total_entries: number;
+  exact_hit_count: number;
+  semantic_hit_count: number;
+  miss_count: number;
+  bypass_count: number;
+  hit_rate_percentage: number;
+  estimated_cost_avoided_usd: number;
+  is_authoritative_billing: boolean;
+}
+
 export interface MetricsSummary {
   total_requests: number;
   cache_hits: number;

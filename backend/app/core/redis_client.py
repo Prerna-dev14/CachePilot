@@ -61,20 +61,24 @@ async def get_redis_client():
     """Retrieve async Redis client or fallback."""
     global _redis_client
     if _redis_client is None:
+        if settings.environment == "testing":
+            _redis_client = _in_memory_fallback
+            return _redis_client
         try:
             client = aioredis.from_url(
                 settings.redis_url,
                 encoding="utf-8",
                 decode_responses=True,
-                socket_timeout=2.0,
-                socket_connect_timeout=2.0
+                socket_timeout=1.0,
+                socket_connect_timeout=1.0
             )
             # Quick check
             await client.ping()
             _redis_client = client
         except Exception as e:
             logger.warning(f"Redis unavailable ({e}). Using in-memory cache fallback.")
-            return _in_memory_fallback
+            _redis_client = _in_memory_fallback
+            return _redis_client
     return _redis_client
 
 
