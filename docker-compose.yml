@@ -60,7 +60,7 @@ services:
       dockerfile: Dockerfile
     container_name: cachepilot_frontend
     ports:
-      - "5173:5173"
+      - "5173:80"
     depends_on:
       - backend
     restart: unless-stopped
