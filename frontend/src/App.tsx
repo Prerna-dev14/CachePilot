@@ -8,6 +8,7 @@ import { RAGStudio } from './components/RAGStudio';
 import { SemanticCacheExplorer } from './components/SemanticCacheExplorer';
 import { RoutingLedgerStudio } from './components/RoutingLedgerStudio';
 import { TelemetryDashboard } from './components/TelemetryDashboard';
+import { EvaluationHardeningStudio } from './components/EvaluationHardeningStudio';
 import { apiClient } from './services/apiClient';
 import type { HealthLiveResponse, HealthReadyResponse } from './types/api';
 import { FileText, BookOpen } from 'lucide-react';
@@ -99,6 +100,8 @@ export function App() {
           <RoutingLedgerStudio selectedTenant={selectedTenant} />
         ) : activeTab === 'dashboard' ? (
           <TelemetryDashboard selectedTenant={selectedTenant} />
+        ) : activeTab === 'evaluation' ? (
+          <EvaluationHardeningStudio selectedTenant={selectedTenant} />
         ) : (
           <PhaseShell activeTab={activeTab} selectedTenant={selectedTenant} />
         )}

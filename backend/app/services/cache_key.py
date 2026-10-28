@@ -14,7 +14,9 @@ def normalize_query_text(query: str) -> str:
     """
     if not query:
         return ""
-    q = query.strip().lower()
+    # Strip null bytes and non-printable ASCII control characters
+    q = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', query)
+    q = q.strip().lower()
     # Normalize punctuation spacing
     q = re.sub(r'[\?\.\!]+$', '', q)
     # Collapse multiple whitespaces

@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from backend.app.core.config import get_settings
 from backend.app.core.logging import setup_logging, get_correlation_id
-from backend.app.api.middleware import CorrelationIdMiddleware
+from backend.app.api.middleware import CorrelationIdMiddleware, RateLimitMiddleware
 from backend.app.api.health import router as health_router
 from backend.app.api.v1.rag import router as rag_router
 from backend.app.api.v1.cache import router as cache_router
@@ -41,6 +41,13 @@ app = FastAPI(
 
 # Correlation ID and Request Timing Middleware
 app.add_middleware(CorrelationIdMiddleware)
+
+# Sliding Window Rate Limiting Middleware
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=settings.rate_limit_requests_per_minute,
+    enabled=settings.rate_limit_enabled
+)
 
 # Cross-Origin Resource Sharing (CORS) Middleware
 app.add_middleware(

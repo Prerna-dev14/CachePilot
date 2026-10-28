@@ -68,7 +68,8 @@ class Settings(BaseSettings):
     fallback_to_large_on_error: bool = Field(default=True)
 
     # Rate Limiting
-    rate_limit_requests_per_minute: int = Field(default=60, ge=1)
+    rate_limit_enabled: bool = Field(default=True)
+    rate_limit_requests_per_minute: int = Field(default=120, ge=1)
 
     @field_validator("log_level")
     @classmethod

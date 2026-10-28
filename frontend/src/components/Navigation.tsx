@@ -51,11 +51,11 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
     },
     {
       key: 'evaluation' as TabKey,
-      label: 'Phase 6: Quality Benchmarks',
+      label: 'Phase 6: Hardening & Security',
       icon: TestTube2,
-      badge: 'Planned',
-      badgeColor: 'bg-slate-700/50 text-slate-400 border-slate-700',
-      ready: false,
+      badge: 'Active & Verified',
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      ready: true,
     },
   ];
 

@@ -2,12 +2,76 @@
 import time
 import uuid
 import logging
+from typing import Dict, List
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, JSONResponse
 from backend.app.core.logging import set_correlation_id, get_correlation_id
+from backend.app.core.config import get_settings
 
 logger = logging.getLogger("cachepilot.api")
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """In-memory sliding window rate limiter per client IP/key."""
+
+    def __init__(self, app, requests_per_minute: int = 120, enabled: bool = True):
+        super().__init__(app)
+        self.requests_per_minute = requests_per_minute
+        self.enabled = enabled
+        self._history: Dict[str, List[float]] = {}
+
+    def _clean_old_requests(self, client_id: str, now: float) -> List[float]:
+        window_start = now - 60.0
+        timestamps = [t for t in self._history.get(client_id, []) if t > window_start]
+        self._history[client_id] = timestamps
+        return timestamps
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if not self.enabled:
+            return await call_next(request)
+
+        # Exempt health probes from rate limits
+        if request.url.path.startswith("/health"):
+            return await call_next(request)
+
+        client_ip = request.headers.get(
+            "X-Forwarded-For",
+            request.client.host if request.client else "unknown"
+        ).split(",")[0].strip()
+        client_key = request.headers.get("X-API-Key", client_ip)
+        now = time.time()
+
+        recent = self._clean_old_requests(client_key, now)
+
+        if len(recent) >= self.requests_per_minute:
+            request_id = getattr(request.state, "request_id", get_correlation_id() or "unknown")
+            logger.warning(
+                f"Rate limit exceeded for client {client_key} ({len(recent)} requests/min)",
+                extra={"correlation_id": request_id}
+            )
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "TooManyRequests",
+                    "message": f"Rate limit exceeded. Maximum allowed is {self.requests_per_minute} requests per minute.",
+                    "request_id": request_id
+                },
+                headers={
+                    "Retry-After": "60",
+                    "X-RateLimit-Limit": str(self.requests_per_minute),
+                    "X-RateLimit-Remaining": "0"
+                }
+            )
+
+        self._history.setdefault(client_key, []).append(now)
+        remaining = max(0, self.requests_per_minute - len(self._history[client_key]))
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
+
 
 
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
