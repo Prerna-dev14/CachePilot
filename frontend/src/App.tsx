@@ -7,6 +7,7 @@ import { PhaseShell } from './components/PhaseShell';
 import { RAGStudio } from './components/RAGStudio';
 import { SemanticCacheExplorer } from './components/SemanticCacheExplorer';
 import { RoutingLedgerStudio } from './components/RoutingLedgerStudio';
+import { TelemetryDashboard } from './components/TelemetryDashboard';
 import { apiClient } from './services/apiClient';
 import type { HealthLiveResponse, HealthReadyResponse } from './types/api';
 import { FileText, BookOpen } from 'lucide-react';
@@ -96,6 +97,8 @@ export function App() {
           <SemanticCacheExplorer selectedTenant={selectedTenant} />
         ) : activeTab === 'routing' ? (
           <RoutingLedgerStudio selectedTenant={selectedTenant} />
+        ) : activeTab === 'dashboard' ? (
+          <TelemetryDashboard selectedTenant={selectedTenant} />
         ) : (
           <PhaseShell activeTab={activeTab} selectedTenant={selectedTenant} />
         )}

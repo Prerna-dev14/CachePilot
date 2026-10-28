@@ -154,6 +154,20 @@ export interface MetricsSummary {
   p50_latency_ms: number;
   p95_latency_ms: number;
   model_distribution: Record<string, number>;
+  exact_hits?: number;
+  semantic_hits?: number;
+  misses?: number;
+  bypasses?: number;
+  estimated_cost_avoided_usd?: number;
+  is_authoritative_billing?: boolean;
+  route_reason_distribution?: Record<string, number>;
+  avg_latency_breakdown?: {
+    cache_ms?: number;
+    retrieval_ms?: number;
+    generation_ms?: number;
+    total_ms?: number;
+  };
+  error_count?: number;
 }
 
 export interface RouteDecision {
@@ -221,4 +235,45 @@ export interface RequestLedgerDetail {
   ledger_entry: RequestLedgerEntry;
   model_usages: ModelUsageRecord[];
 }
+
+export interface BenchmarkResultItem {
+  query_id: string;
+  category: string;
+  query: string;
+  baseline_model: string;
+  baseline_cost_usd: number;
+  baseline_latency_ms: number;
+  cpilot_cache_status: string;
+  cpilot_route: string;
+  cpilot_model: string;
+  cpilot_route_reason: string;
+  cpilot_cost_usd: number;
+  cpilot_latency_ms: number;
+  cost_reduction_percent: number;
+  latency_reduction_percent: number;
+  citation_count: number;
+  grounded_faithfulness_score: number;
+}
+
+export interface BenchmarkRunResponse {
+  run_id: string;
+  timestamp: string;
+  tenant_id: string;
+  benchmark_dataset_version: string;
+  total_queries: number;
+  cache_hit_count: number;
+  cache_hit_rate_percent: number;
+  small_model_route_percent: number;
+  large_model_route_percent: number;
+  total_baseline_cost_usd: number;
+  total_cpilot_cost_usd: number;
+  overall_cost_reduction_percent: number;
+  avg_baseline_latency_ms: number;
+  avg_cpilot_latency_ms: number;
+  overall_latency_reduction_percent: number;
+  citation_coverage_percent: number;
+  is_authoritative_billing: boolean;
+  items: BenchmarkResultItem[];
+}
+
 

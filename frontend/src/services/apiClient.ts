@@ -15,6 +15,7 @@ import type {
   RequestLedgerEntry,
   RequestLedgerDetail,
   MetricsSummary,
+  BenchmarkRunResponse,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -132,10 +133,24 @@ class ApiClient {
     return this.request<RequestLedgerDetail>(`/api/v1/ledger/requests/${encodeURIComponent(requestId)}`);
   }
 
-  async getMetricsSummary(): Promise<{ data: MetricsSummary; requestId: string; latencyMs: number }> {
-    return this.request<MetricsSummary>('/api/v1/metrics/summary');
+  async getMetricsSummary(tenantId?: string): Promise<{ data: MetricsSummary; requestId: string; latencyMs: number }> {
+    const url = tenantId ? `/api/v1/metrics/summary?tenant_id=${encodeURIComponent(tenantId)}` : '/api/v1/metrics/summary';
+    return this.request<MetricsSummary>(url);
+  }
+
+  async getEvaluationBenchmark(tenantId?: string): Promise<{ data: BenchmarkRunResponse; requestId: string; latencyMs: number }> {
+    const url = tenantId ? `/api/v1/evaluation/benchmark?tenant_id=${encodeURIComponent(tenantId)}` : '/api/v1/evaluation/benchmark';
+    return this.request<BenchmarkRunResponse>(url);
+  }
+
+  async runEvaluationBenchmark(tenantId?: string): Promise<{ data: BenchmarkRunResponse; requestId: string; latencyMs: number }> {
+    const url = tenantId ? `/api/v1/evaluation/run?tenant_id=${encodeURIComponent(tenantId)}` : '/api/v1/evaluation/run';
+    return this.request<BenchmarkRunResponse>(url, {
+      method: 'POST',
+    });
   }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
+
 

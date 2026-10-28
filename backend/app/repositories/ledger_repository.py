@@ -56,8 +56,16 @@ class LedgerRepository:
         """Compute summary telemetry for dashboard."""
         tenant_reqs = [r for r in self._requests.values() if r["tenant_id"] == tenant_id]
         total_count = len(tenant_reqs)
-        cache_hits = sum(1 for r in tenant_reqs if "HIT" in r["cache_status"])
+
+        exact_hits = sum(1 for r in tenant_reqs if r.get("cache_status") == "hit_exact")
+        semantic_hits = sum(1 for r in tenant_reqs if r.get("cache_status") == "hit_semantic")
+        misses = sum(1 for r in tenant_reqs if r.get("cache_status") == "miss")
+        bypasses = sum(1 for r in tenant_reqs if r.get("cache_status") == "bypass")
+        cache_hits = exact_hits + semantic_hits
+
         total_cost = sum(r.get("estimated_cost_usd", 0.0) for r in tenant_reqs)
+        # Avoided cost estimate: baseline large model invocation ~$0.000150 on hit
+        cost_avoided = cache_hits * 0.000150
 
         latencies = [r.get("latency_total_ms", 0.0) for r in tenant_reqs]
         latencies.sort()
@@ -66,11 +74,26 @@ class LedgerRepository:
         p95 = latencies[int(len(latencies) * 0.95)] if latencies else 0.0
 
         model_dist: Dict[str, int] = {}
+        reason_dist: Dict[str, int] = {}
+        cache_lat_sum = 0.0
+        retrieval_lat_sum = 0.0
+        gen_lat_sum = 0.0
+        error_cnt = 0
+
         for r in tenant_reqs:
             rt = r.get("route", "unknown")
             model_dist[rt] = model_dist.get(rt, 0) + 1
 
-        hit_rate = round((cache_hits / total_count * 100), 2) if total_count > 0 else 0.0
+            rr = r.get("route_reason", "unknown")
+            reason_dist[rr] = reason_dist.get(rr, 0) + 1
+
+            cache_lat_sum += r.get("latency_cache_ms", 0.0)
+            retrieval_lat_sum += r.get("latency_retrieval_ms", 0.0)
+            gen_lat_sum += r.get("latency_generation_ms", 0.0)
+            if r.get("error_code"):
+                error_cnt += 1
+
+        hit_rate = round(cache_hits / total_count, 4) if total_count > 0 else 0.0
 
         return {
             "total_requests": total_count,
@@ -79,7 +102,21 @@ class LedgerRepository:
             "estimated_total_cost_usd": round(total_cost, 6),
             "p50_latency_ms": round(p50, 2),
             "p95_latency_ms": round(p95, 2),
-            "model_distribution": model_dist
+            "model_distribution": model_dist,
+            "exact_hits": exact_hits,
+            "semantic_hits": semantic_hits,
+            "misses": misses,
+            "bypasses": bypasses,
+            "estimated_cost_avoided_usd": round(cost_avoided, 6),
+            "is_authoritative_billing": False,
+            "route_reason_distribution": reason_dist,
+            "avg_latency_breakdown": {
+                "cache_ms": round(cache_lat_sum / total_count, 2) if total_count > 0 else 0.0,
+                "retrieval_ms": round(retrieval_lat_sum / total_count, 2) if total_count > 0 else 0.0,
+                "generation_ms": round(gen_lat_sum / total_count, 2) if total_count > 0 else 0.0,
+                "total_ms": round(sum(latencies) / total_count, 2) if total_count > 0 else 0.0,
+            },
+            "error_count": error_cnt
         }
 
 

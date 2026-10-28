@@ -78,3 +78,14 @@ class MetricsSummary(BaseModel):
     p50_latency_ms: float
     p95_latency_ms: float
     model_distribution: Dict[str, int] = Field(default_factory=dict)
+    # Extended Phase 5 dashboard telemetry fields
+    exact_hits: int = 0
+    semantic_hits: int = 0
+    misses: int = 0
+    bypasses: int = 0
+    estimated_cost_avoided_usd: float = 0.0
+    is_authoritative_billing: bool = False
+    route_reason_distribution: Dict[str, int] = Field(default_factory=dict)
+    avg_latency_breakdown: Dict[str, float] = Field(default_factory=dict)
+    error_count: int = 0
+

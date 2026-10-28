@@ -43,11 +43,11 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
     },
     {
       key: 'dashboard' as TabKey,
-      label: 'Phase 5: Telemetry Ledger',
+      label: 'Phase 5: Telemetry Dashboard',
       icon: BarChart3,
-      badge: 'Planned',
-      badgeColor: 'bg-slate-700/50 text-slate-400 border-slate-700',
-      ready: false,
+      badge: 'Active & Verified',
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      ready: true,
     },
     {
       key: 'evaluation' as TabKey,

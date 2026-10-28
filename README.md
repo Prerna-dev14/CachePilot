@@ -118,7 +118,9 @@ npm run dev
 
 ## 4. Test Results Summary
 
-- **Backend Pytest Suite**: 34 passed (100%)
+- **Backend Pytest Suite**: 37 passed (100%)
+  - `backend/tests/unit/test_evaluation_benchmark.py` (Fixed benchmark suite comparison: cost & latency reductions, citation integrity, non-authoritative flag)
+  - `backend/tests/integration/test_evaluation_api.py` (GET benchmark comparison & POST live benchmark execution endpoints)
   - `backend/tests/security/test_cache_isolation.py` (Zero cross-tenant cache reuse leakage)
   - `backend/tests/security/test_tenant_isolation.py` (Zero cross-tenant retrieval leakage)
   - `backend/tests/unit/test_complexity_classifier.py` (Low complexity factual lookup, comparative reasoning, multi-step analytical reasoning, quantitative math)
@@ -129,7 +131,8 @@ npm run dev
   - `backend/tests/integration/test_semantic_cache_api.py` (Exact hit, semantic hit, miss, bypass, and invalidation)
   - `backend/tests/integration/test_rag_pipeline.py` (End-to-end ingestion, document listing, grounded queries)
   - `backend/tests/unit/test_chunking.py`, `test_config.py`, `test_logging.py`, `test_mock_providers.py`, `test_health_api.py`.
-- **Frontend Vitest Suite**: 12 passed (100%)
+- **Frontend Vitest Suite**: 14 passed (100%)
+  - `TelemetryDashboard.test.tsx` (Hero KPI cards, model routing mix, cache mix, waterfall profile, benchmark comparison matrix, export audit JSON)
   - `RoutingLedgerStudio.test.tsx` (Summary KPI cards, complexity simulator, historical ledger records, diagnostics modal)
   - `SemanticCacheExplorer.test.tsx` (Hit rate metrics, entry inspection, cache purge trigger)
   - `RAGStudio.test.tsx` (Ingestion form, preset buttons, grounded query execution with citations)
@@ -138,9 +141,10 @@ npm run dev
 
 ---
 
-## 5. Next Step: Phase 5 — Dashboard & Quality Evaluation
-Upon approval, Phase 5 will implement:
-- Interactive analytics dashboard for model routing breakdown, hit rates, and latency distribution
-- Automated evaluation runner and offline quality benchmark comparisons (retrieval relevance and answer accuracy)
-- Exportable telemetry audit reports for operational reviews
+## 5. Next Step: Phase 6 — Evaluation Hardening & Production Packaging
+Upon approval, Phase 6 will implement:
+- Adversarial cache tests (prompt injection in query, collision attempts, boundary inputs)
+- Token bucket client rate limiter and security guards
+- Production Docker Compose verification, environment sample configs, and architecture documentation
+
 

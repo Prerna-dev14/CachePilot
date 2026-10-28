@@ -13,6 +13,7 @@ from backend.app.api.health import router as health_router
 from backend.app.api.v1.rag import router as rag_router
 from backend.app.api.v1.cache import router as cache_router
 from backend.app.api.v1.routing import router as routing_router
+from backend.app.api.v1.evaluation import router as evaluation_router
 
 settings = get_settings()
 logger = setup_logging(log_level=settings.log_level)
@@ -84,4 +85,5 @@ app.include_router(health_router)
 app.include_router(rag_router)
 app.include_router(cache_router)
 app.include_router(routing_router)
+app.include_router(evaluation_router)
 
