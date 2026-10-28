@@ -21,9 +21,9 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
       key: 'rag' as TabKey,
       label: 'Phase 2: Baseline RAG',
       icon: Database,
-      badge: 'Next Checkpoint',
-      badgeColor: 'bg-brand-500/10 text-brand-400 border-brand-500/20',
-      ready: false,
+      badge: 'Active & Verified',
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      ready: true,
     },
     {
       key: 'cache' as TabKey,

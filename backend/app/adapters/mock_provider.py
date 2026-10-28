@@ -2,6 +2,7 @@
 import hashlib
 import math
 import random
+import re
 import time
 from typing import List, Optional
 from backend.app.adapters.base import LLMProvider, EmbeddingProvider, LLMResponse
@@ -10,10 +11,9 @@ from backend.app.adapters.base import LLMProvider, EmbeddingProvider, LLMRespons
 class MockLLMProvider(LLMProvider):
     """Deterministic Mock LLM Provider with configurable latency and failure simulation."""
 
-    # Unit costs per 1,000 tokens for realistic non-authoritative estimation
     COST_TABLE = {
-        "mock-fast-small": {"input": 0.00015, "output": 0.00060},       # e.g. lightweight model
-        "mock-reasoning-large": {"input": 0.00300, "output": 0.01500},   # e.g. frontier reasoning model
+        "mock-fast-small": {"input": 0.00015, "output": 0.00060},
+        "mock-reasoning-large": {"input": 0.00300, "output": 0.01500},
     }
 
     def __init__(
@@ -42,16 +42,13 @@ class MockLLMProvider(LLMProvider):
             import asyncio
             await asyncio.sleep(self.simulate_latency_ms / 1000.0)
 
-        # Deterministic generation
         prompt_hash = hashlib.md5(prompt.encode("utf-8")).hexdigest()[:8]
         generated_text = f"[MockResponse-{self.model_name}] Grounded answer for query (sig: {prompt_hash})."
 
-        # Deterministic token calculations
         prompt_tokens = max(1, len(prompt.split())) + (len(system.split()) if system else 0)
         completion_tokens = max(1, len(generated_text.split()))
         total_tokens = prompt_tokens + completion_tokens
 
-        # Estimated cost calculation
         costs = self.COST_TABLE.get(self.model_name, {"input": 0.0005, "output": 0.0015})
         est_cost = (prompt_tokens / 1000.0 * costs["input"]) + (completion_tokens / 1000.0 * costs["output"])
 
@@ -71,7 +68,7 @@ class MockLLMProvider(LLMProvider):
 
 
 class MockEmbeddingProvider(EmbeddingProvider):
-    """Deterministic Mock Embedding Provider producing normalized vectors."""
+    """Deterministic Mock Embedding Provider with semantic keyword overlap simulation."""
 
     def __init__(self, dimension: int = 1536):
         self._dim = dimension
@@ -80,18 +77,34 @@ class MockEmbeddingProvider(EmbeddingProvider):
     def dimension(self) -> int:
         return self._dim
 
-    def _generate_vector(self, text: str) -> List[float]:
-        """Generate a deterministic, unit-normalized vector for given text."""
-        norm_text = text.strip().lower()
-        seed = int(hashlib.sha256(norm_text.encode("utf-8")).hexdigest()[:16], 16)
+    def _word_vector(self, word: str) -> List[float]:
+        """Generate deterministic component vector for an individual token."""
+        seed = int(hashlib.md5(word.encode("utf-8")).hexdigest()[:8], 16)
         rng = random.Random(seed)
+        return [rng.gauss(0.0, 1.0) for _ in range(self._dim)]
 
-        # Generate Gaussian random components
-        raw_vec = [rng.gauss(0.0, 1.0) for _ in range(self._dim)]
-        magnitude = math.sqrt(sum(x * x for x in raw_vec))
+    def _generate_vector(self, text: str) -> List[float]:
+        """Generate a semantic vector with high cosine similarity for overlapping keywords."""
+        words = re.findall(r'\w+', text.lower())
+        if not words:
+            words = ["empty"]
+
+        accum = [0.0] * self._dim
+        for w in words:
+            w_vec = self._word_vector(w)
+            for i in range(self._dim):
+                accum[i] += w_vec[i]
+
+        # Small text-level fingerprint for exactness
+        text_seed = int(hashlib.sha256(text.strip().lower().encode("utf-8")).hexdigest()[:8], 16)
+        t_rng = random.Random(text_seed)
+        for i in range(self._dim):
+            accum[i] += 0.05 * t_rng.gauss(0.0, 1.0)
+
+        magnitude = math.sqrt(sum(x * x for x in accum))
         if magnitude == 0:
             return [1.0 / math.sqrt(self._dim)] * self._dim
-        return [round(x / magnitude, 6) for x in raw_vec]
+        return [round(x / magnitude, 6) for x in accum]
 
     async def embed_query(self, text: str) -> List[float]:
         return self._generate_vector(text)

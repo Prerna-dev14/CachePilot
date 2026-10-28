@@ -4,6 +4,7 @@ import { Navigation } from './components/Navigation';
 import type { TabKey } from './components/Navigation';
 import { SystemHealthCard } from './components/SystemHealthCard';
 import { PhaseShell } from './components/PhaseShell';
+import { RAGStudio } from './components/RAGStudio';
 import { apiClient } from './services/apiClient';
 import type { HealthLiveResponse, HealthReadyResponse } from './types/api';
 import { FileText, BookOpen } from 'lucide-react';
@@ -87,7 +88,11 @@ export function App() {
         />
 
         {/* Phase-specific vertical view */}
-        <PhaseShell activeTab={activeTab} selectedTenant={selectedTenant} />
+        {activeTab === 'rag' ? (
+          <RAGStudio selectedTenant={selectedTenant} />
+        ) : (
+          <PhaseShell activeTab={activeTab} selectedTenant={selectedTenant} />
+        )}
       </main>
 
       {/* Footer */}

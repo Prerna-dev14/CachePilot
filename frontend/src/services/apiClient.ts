@@ -1,4 +1,12 @@
-import type { HealthLiveResponse, HealthReadyResponse } from '../types/api';
+import type {
+  HealthLiveResponse,
+  HealthReadyResponse,
+  DocumentIngestRequest,
+  DocumentIngestResponse,
+  DocumentSummary,
+  QueryRequest,
+  QueryResponse,
+} from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -30,7 +38,16 @@ class ApiClient {
       const resRequestId = response.headers.get('X-Request-ID') || requestId;
 
       if (!response.ok && response.status !== 503) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
+        let errMsg = `API error: ${response.status} ${response.statusText}`;
+        try {
+          const errData = await response.json();
+          if (errData && errData.message) {
+            errMsg = errData.message;
+          }
+        } catch {
+          // ignore json parse error
+        }
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
@@ -48,6 +65,28 @@ class ApiClient {
 
   async getHealthReady(): Promise<{ data: HealthReadyResponse; requestId: string; latencyMs: number }> {
     return this.request<HealthReadyResponse>('/health/ready');
+  }
+
+  async ingestDocument(doc: DocumentIngestRequest): Promise<{ data: DocumentIngestResponse; requestId: string; latencyMs: number }> {
+    return this.request<DocumentIngestResponse>('/api/v1/documents', {
+      method: 'POST',
+      body: JSON.stringify(doc),
+    });
+  }
+
+  async listDocuments(tenantId: string, securityScope?: string): Promise<{ data: DocumentSummary[]; requestId: string; latencyMs: number }> {
+    let url = `/api/v1/documents?tenant_id=${encodeURIComponent(tenantId)}`;
+    if (securityScope) {
+      url += `&security_scope=${encodeURIComponent(securityScope)}`;
+    }
+    return this.request<DocumentSummary[]>(url);
+  }
+
+  async executeQuery(queryReq: QueryRequest): Promise<{ data: QueryResponse; requestId: string; latencyMs: number }> {
+    return this.request<QueryResponse>('/api/v1/query', {
+      method: 'POST',
+      body: JSON.stringify(queryReq),
+    });
   }
 }
 

@@ -22,7 +22,7 @@ CachePilot is an observable, scope-aware AI gateway designed to reduce redundant
 
 ---
 
-## 2. Phase 0 & Phase 1 Implemented Foundation
+## 2. Implemented Foundation (Phase 0, 1 & 2)
 
 ### Scope-Aware Semantic Cache Key Formulation
 Cache keys strictly enforce multi-tenant isolation and security scope boundaries:
@@ -49,17 +49,21 @@ cache_key = SHA256(
 3. **Health & Readiness Probes**:
    - `GET /health/live`: Fast process liveness probe (200 OK).
    - `GET /health/ready`: Deep dependency readiness check measuring roundtrip latency for PostgreSQL (`pgvector`) and Redis cache storage (with automatic in-memory fallback).
-4. **Replaceable Provider Adapters**:
+4. **Baseline RAG Pipeline (Phase 2 Slice)**:
+   - `POST /api/v1/documents`: Document ingestion with automatic text chunking and 1536-d vector embeddings.
+   - `GET /api/v1/documents`: Scoped corpus document listing strictly filtered by tenant.
+   - `POST /api/v1/query`: Grounded query execution with vector similarity retrieval, citation tracking, token counting, estimated cost calculation, and latency breakdown (retrieval vs generation).
+5. **Security & Scope Isolation**:
+   - Hard boundary tests verify Tenant A cannot retrieve Tenant B's documents even when queries match confidential text.
+6. **Replaceable Provider Adapters**:
    - `LLMProvider` and `EmbeddingProvider` abstract interfaces.
-   - Deterministic `MockLLMProvider` and `MockEmbeddingProvider` for CI tests.
-   - Unit-normalized 1536-dimensional embeddings for cosine similarity evaluation.
-5. **Database Schema & Migrations**:
-   - Initial migration [`migrations/init.sql`](./migrations/init.sql) defining `tenants`, `users`, `documents`, `chunks`, `cache_entries`, `requests`, `model_usage`, `routing_policies`, `evaluation_runs`, and `evaluation_results`.
-   - HNSW index support for cosine vector distance.
-6. **Frontend Shell (React 19 + TypeScript + Vite + Tailwind CSS)**:
-   - Responsive dark glassmorphism dashboard shell.
-   - Real-time probe indicators with latency telemetry.
-   - Tenant scope selector and phase navigation.
+   - Deterministic `MockLLMProvider` and `MockEmbeddingProvider` with semantic keyword overlap simulation for CI tests.
+7. **Database Schema & Migrations**:
+   - Initial migration [`migrations/init.sql`](./migrations/init.sql) defining complete multi-tenant RAG schema.
+8. **Frontend RAG Studio (React 19 + TypeScript + Vite + Tailwind CSS)**:
+   - Interactive Document Ingestion panel with preset templates.
+   - Live Corpus document browser.
+   - Grounded RAG Query console with top-k controls, evidence citations, and telemetry waterfall.
 
 ---
 
@@ -80,8 +84,8 @@ python -m venv .venv
 # 2. Install dependencies
 pip install -r backend/requirements-dev.txt
 
-# 3. Copy sample environment file
-cp .env.example .env
+# 3. Seed sample enterprise documents
+python scripts/seed_sample_data.py
 
 # 4. Run automated test suite
 pytest -v
@@ -107,35 +111,30 @@ npm run build
 npm run dev
 ```
 
-### Docker Compose
-```bash
-docker compose up -d
-```
-- Frontend UI: `http://localhost:5173`
-- Backend API Docs: `http://localhost:8000/docs`
-- Health Liveness: `http://localhost:8000/health/live`
-- Health Readiness: `http://localhost:8000/health/ready`
-
 ---
 
 ## 4. Test Results Summary
 
-- **Backend Pytest Suite**: 13 passed (100%)
+- **Backend Pytest Suite**: 19 passed (100%)
+  - `backend/tests/security/test_tenant_isolation.py` (Zero cross-tenant retrieval leakage)
+  - `backend/tests/unit/test_chunking.py` (Chunk size, overlap, empty/short edge cases, token estimation)
+  - `backend/tests/integration/test_rag_pipeline.py` (End-to-end ingest, list, and grounded query flow)
   - `backend/tests/unit/test_config.py` (Validation, threshold bounds, secret masking)
   - `backend/tests/unit/test_logging.py` (Correlation ID context, JSON formatting)
   - `backend/tests/unit/test_mock_providers.py` (Deterministic generation, failure simulation, vector normalization)
   - `backend/tests/integration/test_health_api.py` (Liveness, readiness, custom correlation headers)
-- **Frontend Vitest Suite**: 5 passed (100%)
+- **Frontend Vitest Suite**: 8 passed (100%)
+  - `RAGStudio.test.tsx` (Ingestion form, preset buttons, grounded query execution with citations)
   - `Header.test.tsx` (Brand rendering, active phase badge, tenant switching)
   - `SystemHealthCard.test.tsx` (Dependency probe states, error notification, refresh button)
 - **Frontend Production Build**: Clean build via `tsc -b && vite build`.
 
 ---
 
-## 5. Next Step: Phase 2 — Baseline RAG Pipeline
-Upon approval, Phase 2 will implement:
-- Document ingestion endpoint (`POST /api/v1/documents`)
-- Text chunking, token estimation, and vector generation
-- pgvector vector similarity retrieval
-- Grounded generation with citations and source references
-- Baseline end-to-end question answering pipeline
+## 5. Next Step: Phase 3 — Semantic Cache
+Upon approval, Phase 3 will implement:
+- Scope-aware cache key computation
+- Dual-tier lookup (Redis / in-memory exact match + pgvector similarity candidate retrieval)
+- Configurable similarity threshold ($\tau = 0.88$)
+- Cache write with TTL and freshness tags (`corpus_version`, `prompt_version`)
+- Cache bypass, explicit invalidation endpoint (`POST /api/v1/cache/invalidate`), and hit/miss telemetry tracking

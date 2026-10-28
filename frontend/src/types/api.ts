@@ -26,10 +26,40 @@ export interface HealthReadyResponse {
   config_summary?: Record<string, unknown>;
 }
 
+export interface DocumentIngestRequest {
+  title: string;
+  content: string;
+  tenant_id: string;
+  security_scope: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentIngestResponse {
+  document_id: string;
+  title: string;
+  tenant_id: string;
+  security_scope: string;
+  chunk_count: number;
+  content_hash: string;
+  corpus_version: string;
+  created_at: string;
+}
+
+export interface DocumentSummary {
+  document_id: string;
+  title: string;
+  tenant_id: string;
+  security_scope: string;
+  chunk_count: number;
+  content_hash: string;
+  created_at: string;
+}
+
 export interface QueryRequest {
   query: string;
   tenant_id: string;
   security_scope: string;
+  top_k?: number;
   bypass_cache?: boolean;
   similarity_threshold?: number;
   conversation_id?: string;
@@ -38,14 +68,15 @@ export interface QueryRequest {
 export interface QueryCitation {
   document_id: string;
   chunk_id: string;
+  document_title?: string;
   score: number;
   text_snippet: string;
 }
 
 export interface QueryTelemetry {
-  cache_status: 'HIT_EXACT' | 'HIT_SEMANTIC' | 'MISS' | 'BYPASS';
+  cache_status: 'HIT_EXACT' | 'HIT_SEMANTIC' | 'MISS' | 'BYPASS' | string;
   similarity_score?: number;
-  route: 'small' | 'large' | 'cache';
+  route: 'small' | 'large' | 'cache' | string;
   route_reason: string;
   tokens: {
     prompt_tokens: number;
@@ -64,9 +95,11 @@ export interface QueryTelemetry {
 
 export interface QueryResponse {
   request_id: string;
+  query: string;
   answer: string;
   citations: QueryCitation[];
   telemetry: QueryTelemetry;
+  created_at?: string;
 }
 
 export interface MetricsSummary {

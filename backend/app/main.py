@@ -10,6 +10,7 @@ from backend.app.core.config import get_settings
 from backend.app.core.logging import setup_logging, get_correlation_id
 from backend.app.api.middleware import CorrelationIdMiddleware
 from backend.app.api.health import router as health_router
+from backend.app.api.v1.rag import router as rag_router
 
 settings = get_settings()
 logger = setup_logging(log_level=settings.log_level)
@@ -78,3 +79,5 @@ async def root():
 
 # Mount Routers
 app.include_router(health_router)
+app.include_router(rag_router)
+

@@ -1,0 +1,30 @@
+[
+  {
+    "title": "CachePilot Security and Scope Isolation Policy",
+    "tenant_id": "tenant-default",
+    "security_scope": "default",
+    "metadata": { "category": "security", "author": "InfraSec" },
+    "content": "CachePilot enforces strict multi-tenant isolation across all vector indices and semantic cache storage. Each cache key and chunk embedding is partitioned by tenant identifier and authorization scope. A query originating from Tenant A can never retrieve or reuse cached answer entries generated for Tenant B, even when questions are semantically identical. Authorization boundary validation occurs at the query gateway before candidate vector retrieval."
+  },
+  {
+    "title": "Enterprise Data Retention and Invalidation Guidelines",
+    "tenant_id": "tenant-default",
+    "security_scope": "default",
+    "metadata": { "category": "compliance", "author": "Governance" },
+    "content": "All cached query responses are bound to a default Time-To-Live (TTL) of 24 hours. When underlying document corpora are updated or re-indexed, the corpus version increments automatically from v1.0.0 to subsequent semantic tags. Any change in corpus version, prompt template version, or embedding model immediately invalidates previous cache entries, preventing stale or outdated facts from being served to downstream consumers."
+  },
+  {
+    "title": "Cost-Aware Model Routing Protocol",
+    "tenant_id": "tenant-default",
+    "security_scope": "default",
+    "metadata": { "category": "architecture", "author": "AI Gateway Team" },
+    "content": "The CachePilot intelligent routing engine classifies incoming queries by syntactical complexity, reasoning depth, and required context size. Simple factual queries and direct document lookup requests are routed to the small model (mock-fast-small) with route reason code LOW_COMPLEXITY_DIRECT. Complex multi-step reasoning queries requiring syntheses across documents are routed to the large frontier model (mock-reasoning-large) under code REASONING_REQUIRED. In the event of small model timeout or failure, the gateway executes deterministic fallback to the large model."
+  },
+  {
+    "title": "Financial Services Confidential Audit Trail",
+    "tenant_id": "tenant-finance",
+    "security_scope": "confidential",
+    "metadata": { "category": "finance", "classification": "restricted" },
+    "content": "Confidential financial ledger data for Tenant Finance. The total quarterly operational capital expenditure was four point five million dollars. This document is strictly restricted to the tenant-finance scope and must never be exposed or retrieved by any default tenant query under any circumstance."
+  }
+]
